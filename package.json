@@ -9,15 +9,17 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
+    "@babylonjs/core": "^7.42.0",
+    "@babylonjs/loaders": "^7.42.0",
+    "babylonjs": "^7.42.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "babylonjs": "^7.42.0",
     "react-scripts": "5.0.1"
   },
   "devDependencies": {
-    "typescript": "^5.7.2",
     "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2"
+    "@types/react-dom": "^19.0.2",
+    "typescript": "^5.7.2"
   },
   "browserslist": {
     "production": [
