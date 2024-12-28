@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Engine, Scene, ArcRotateCamera, HemisphericLight, MeshBuilder, Vector3, StandardMaterial, Texture, SceneLoader, Animation, AnimationGroup } from '@babylonjs/core';
 import '@babylonjs/loaders';
+import * as Tone from 'tone';
 
 const BabylonScene: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -67,29 +68,8 @@ const BabylonScene: React.FC = () => {
             setSambaAnim(sambaAnim);
             setIdleAnim(idleAnim);
 
-            // Start with idle animation for 2 seconds
-            idleAnim?.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-            setTimeout(() => {
-                idleAnim?.stop();
-                // Start walking animation
-                walkAnim?.start(true, 1.0, walkAnim.from, walkAnim.to, false);
-                scene.beginDirectAnimation(hero, [walkToMiddle], 0, 150, false, 1, () => {
-                    walkAnim?.stop();
-                    idleAnim?.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-                    hero.rotation.y = Math.PI / 2; // Face the front
-                    sambaAnim?.start(false, 1.0, sambaAnim.from, sambaAnim.to, false);
-
-                    // Stop samba after 3 seconds and walk off to the right
-                    setTimeout(() => {
-                        sambaAnim?.stop();
-                        walkAnim?.start(true, 1.0, walkAnim.from, walkAnim.to, false);
-                        scene.beginDirectAnimation(hero, [walkOffRight], 0, 150, false, 1, () => {
-                            walkAnim?.stop();
-                            idleAnim?.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-                        });
-                    }, 3000);
-                });
-            }, 2000);
+            // Start the animation sequence
+            startAnimationSequence(hero, walkAnim, sambaAnim, idleAnim, scene);
         });
 
         engine.runRenderLoop(() => {
@@ -101,13 +81,62 @@ const BabylonScene: React.FC = () => {
         };
     }, []);
 
+    const startAnimationSequence = (hero: any, walkAnim: AnimationGroup | null, sambaAnim: AnimationGroup | null, idleAnim: AnimationGroup | null, scene: Scene | null) => {
+        if (!scene || !hero || !walkAnim || !sambaAnim || !idleAnim) return;
+
+        // Create a Tone.js part
+        const part = new Tone.Part(
+            (time, step) => {
+                switch (step) {
+                    case 'idleStart':
+                        idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
+                        break;
+                    case 'idleStop':
+                        idleAnim.stop();
+                        break;
+                    case 'walkStart':
+                        walkAnim.start(true, 1.0, walkAnim.from, walkAnim.to, false);
+                        scene.beginDirectAnimation(hero, [walkToMiddle], 0, 150, false, 1, () => {
+                            walkAnim.stop();
+                        });
+                        break;
+                    case 'sambaStart':
+                        idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
+                        hero.rotation.y = Math.PI / 2; // Face the front
+                        sambaAnim.start(false, 1.0, sambaAnim.from, sambaAnim.to, false);
+                        break;
+                    case 'sambaStop':
+                        sambaAnim.stop();
+                        break;
+                    case 'walkOffStart':
+                        walkAnim.start(true, 1.0, walkAnim.from, walkAnim.to, false);
+                        scene.beginDirectAnimation(hero, [walkOffRight], 0, 150, false, 1, () => {
+                            walkAnim.stop();
+                            idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
+                        });
+                        break;
+                }
+            },
+            [
+                [0, 'idleStart'],
+                [2, 'idleStop'],
+                [2, 'walkStart'],
+                [7, 'sambaStart'],
+                [10, 'sambaStop'],
+                [10, 'walkOffStart']
+            ]
+        );
+
+        // Start the part
+        Tone.Transport.start();
+        part.start(0);
+    };
+
     const handlePlayPause = () => {
         if (isPlaying) {
-            engine?.stopRenderLoop();
+            Tone.Transport.pause();
         } else {
-            engine?.runRenderLoop(() => {
-                scene?.render();
-            });
+            Tone.Transport.start();
         }
         setIsPlaying(!isPlaying);
     };
@@ -119,26 +148,8 @@ const BabylonScene: React.FC = () => {
             idleAnim?.stop();
             walkAnim?.stop();
             sambaAnim?.stop();
-            idleAnim?.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-            setTimeout(() => {
-                idleAnim?.stop();
-                walkAnim?.start(true, 1.0, walkAnim.from, walkAnim.to, false);
-                scene?.beginDirectAnimation(hero, [walkToMiddle], 0, 150, false, 1, () => {
-                    walkAnim?.stop();
-                    idleAnim?.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-                    hero.rotation.y = Math.PI / 2; // Face the front
-                    sambaAnim?.start(false, 1.0, sambaAnim.from, sambaAnim.to, false);
-
-                    setTimeout(() => {
-                        sambaAnim?.stop();
-                        walkAnim?.start(true, 1.0, walkAnim.from, walkAnim.to, false);
-                        scene?.beginDirectAnimation(hero, [walkOffRight], 0, 150, false, 1, () => {
-                            walkAnim?.stop();
-                            idleAnim?.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-                        });
-                    }, 3000);
-                });
-            }, 2000);
+            Tone.Transport.stop();
+            Tone.Transport.start();
         }
     };
 

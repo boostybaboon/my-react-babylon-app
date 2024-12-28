@@ -14,7 +14,8 @@
     "babylonjs": "^7.42.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-scripts": "5.0.1"
+    "react-scripts": "5.0.1",
+    "tone": "^15.0.4"
   },
   "devDependencies": {
     "@types/react": "^19.0.2",
