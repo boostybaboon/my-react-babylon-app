@@ -49,6 +49,15 @@ const BabylonBlockTest: React.FC = () => {
         };
     }, []);
 
+    // I am very suspicious of this useEffect, as it supposes
+    // that model will never change after it is set... works ok
+    // for this example though
+    useEffect(() => {
+        if (model) {
+            handleSliderChange(currentTime);
+        }
+    }, [model]);
+
     const handleSliderChange = (value: number) => {
         setCurrentTime(value);
         if (model) {
@@ -75,7 +84,7 @@ const BabylonBlockTest: React.FC = () => {
                 const event = new Tone.ToneEvent((time) => {
                     // Handle staging direction event
                     console.log(`Staging direction event at time ${time}:`, direction);
-                }).start(direction.startTime.toString());
+                }).start(direction.startTime);
                 eventsRef.current.push(event);
             });
 
@@ -84,7 +93,7 @@ const BabylonBlockTest: React.FC = () => {
                 const event = new Tone.ToneEvent((time) => {
                     // Handle acting direction event
                     console.log(`Acting direction event at time ${time}:`, direction);
-                }).start(direction.startTime.toString());
+                }).start(direction.startTime);
                 eventsRef.current.push(event);
             });
         }
