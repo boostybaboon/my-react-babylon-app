@@ -29,12 +29,20 @@ class Model {
         ];
 
         this.actingDirections = [
-            new ActingDirection(0, 2, false, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, ''),
-            new ActingDirection(2, 3, true, { x: -5, y: 0, z: 0 }, { x: -5, y: 0, z: 0 }, 'idle'),
-            new ActingDirection(3, 7, true, { x: -5, y: 0, z: 0 }, { x: 5, y: 0, z: 0 }, 'walk'),
-            new ActingDirection(7, 8, true, { x: 5, y: 0, z: 0 }, { x: 5, y: 0, z: 0 }, 'idle'),
-            new ActingDirection(8, 10, false, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, '')
+            new ActingDirection(0, 2, false, { x: 0, y: 0.5, z: 0 }, { x: 0, y: 0.5, z: 0 }, ''),
+            new ActingDirection(2, 3, true, { x: -5, y: 0.5, z: 0 }, { x: -5, y: 0.5, z: 0 }, 'idle'),
+            new ActingDirection(3, 7, true, { x: -5, y: 0.5, z: 0 }, { x: 5, y: 0.5, z: 0 }, 'walk'),
+            new ActingDirection(7, 8, true, { x: 5, y: 0.5, z: 0 }, { x: 5, y: 0.5, z: 0 }, 'idle'),
+            new ActingDirection(8, 10, false, { x: 0, y: 0.5, z: 0 }, { x: 0, y: 0.5, z: 0 }, '')
         ];
+    }
+
+    private interpolatePosition(startPosition: { x: number, y: number, z: number }, endPosition: { x: number, y: number, z: number }, progress: number) {
+        return {
+            x: startPosition.x + (endPosition.x - startPosition.x) * progress,
+            y: startPosition.y + (endPosition.y - startPosition.y) * progress,
+            z: startPosition.z + (endPosition.z - startPosition.z) * progress
+        };
     }
 
     queryAtTime(t: number) {
@@ -48,11 +56,7 @@ class Model {
         if (activeActingDirection) {
             const { startPosition, endPosition, anim } = activeActingDirection;
             const progress = (t - activeActingDirection.startTime) / (activeActingDirection.endTime - activeActingDirection.startTime);
-            const position = {
-                x: startPosition.x + (endPosition.x - startPosition.x) * progress,
-                y: startPosition.y + (endPosition.y - startPosition.y) * progress,
-                z: startPosition.z + (endPosition.z - startPosition.z) * progress
-            };
+            const position = this.interpolatePosition(startPosition, endPosition, progress);
             actingState = { enabled: true, position, anim };
         }
 
@@ -71,7 +75,9 @@ class Model {
             .filter(direction => t < direction.endTime)
             .map(direction => {
                 if (direction.startTime <= t) {
-                    return new ActingDirection(t, direction.endTime, direction.enabled, direction.startPosition, direction.endPosition, direction.anim);
+                    const progress = (t - direction.startTime) / (direction.endTime - direction.startTime);
+                    const startPosition = this.interpolatePosition(direction.startPosition, direction.endPosition, progress);
+                    return new ActingDirection(t, direction.endTime, direction.enabled, startPosition, direction.endPosition, direction.anim);
                 }
                 return direction;
             });
