@@ -8,6 +8,7 @@ const BabylonScene: React.FC = () => {
     const [scene, setScene] = useState<Scene | null>(null);
     const [engine, setEngine] = useState<Engine | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
     const [hero, setHero] = useState<any>(null);
     const [walkAnim, setWalkAnim] = useState<AnimationGroup | null>(null);
     const [sambaAnim, setSambaAnim] = useState<AnimationGroup | null>(null);
@@ -51,6 +52,7 @@ const BabylonScene: React.FC = () => {
 
         // Load the humanoid model
         SceneLoader.ImportMesh("", "https://assets.babylonjs.com/meshes/", "HVGirl.glb", scene, (meshes, particleSystems, skeletons, animationGroups) => {
+            console.log("Model loaded");
             const hero = meshes[0];
             hero.position = new Vector3(-5, 0, 0); // Start on the left
             hero.scaling.scaleInPlace(0.1);
@@ -64,12 +66,57 @@ const BabylonScene: React.FC = () => {
             const sambaAnim = scene.getAnimationGroupByName("Samba");
             const idleAnim = scene.getAnimationGroupByName("Idle");
 
+            console.log("Animations loaded:", { walkAnim, sambaAnim, idleAnim });
+
             setWalkAnim(walkAnim);
             setSambaAnim(sambaAnim);
             setIdleAnim(idleAnim);
 
-            // Start the animation sequence
-            startAnimationSequence(hero, walkAnim, sambaAnim, idleAnim, scene);
+            if (walkAnim && sambaAnim && idleAnim) {
+                // Define event actions
+                const eventActions: { [key: string]: () => void } = {
+                    idleStart: () => {
+                        console.log("Starting idle animation");
+                        idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
+                    },
+                    idleStop: () => {
+                        console.log("Stopping idle animation");
+                        idleAnim.stop();
+                    },
+                    walkStart: () => {
+                        console.log("Starting walk animation");
+                        walkAnim.start(true, 1.0, walkAnim.from, walkAnim.to, false);
+                        scene.beginDirectAnimation(hero, [walkToMiddle], 0, 150, false, 1, () => {
+                            console.log("Walk animation finished");
+                            walkAnim.stop();
+                        });
+                    },
+                    sambaStart: () => {
+                        console.log("Starting samba animation");
+                        idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
+                        hero.rotation.y = Math.PI / 2; // Face the front
+                        sambaAnim.start(false, 1.0, sambaAnim.from, sambaAnim.to, false);
+                    },
+                    sambaStop: () => {
+                        console.log("Stopping samba animation");
+                        sambaAnim.stop();
+                    },
+                    walkOffStart: () => {
+                        console.log("Starting walk off animation");
+                        walkAnim.start(true, 1.0, walkAnim.from, walkAnim.to, false);
+                        scene.beginDirectAnimation(hero, [walkOffRight], 0, 150, false, 1, () => {
+                            console.log("Walk off animation finished");
+                            walkAnim.stop();
+                            idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
+                        });
+                    }
+                };
+
+                // Start the animation sequence
+                startAnimationSequence(eventActions);
+            } else {
+                console.error("Animations not found");
+            }
         });
 
         engine.runRenderLoop(() => {
@@ -81,51 +128,33 @@ const BabylonScene: React.FC = () => {
         };
     }, []);
 
-    const startAnimationSequence = (hero: any, walkAnim: AnimationGroup | null, sambaAnim: AnimationGroup | null, idleAnim: AnimationGroup | null, scene: Scene | null) => {
-        if (!scene || !hero || !walkAnim || !sambaAnim || !idleAnim) return;
+    const addEventToTimeline = (part: Tone.Part<{ time: number; event: string }>, time: number, event: string) => {
+        part.add(time, { time, event });
+    };
 
+    const startAnimationSequence = (eventActions: { [key: string]: () => void }) => {
         // Create a Tone.js part
-        const part = new Tone.Part(
+        const part = new Tone.Part<{ time: number; event: string }>(
             (time, step) => {
-                switch (step) {
-                    case 'idleStart':
-                        idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-                        break;
-                    case 'idleStop':
-                        idleAnim.stop();
-                        break;
-                    case 'walkStart':
-                        walkAnim.start(true, 1.0, walkAnim.from, walkAnim.to, false);
-                        scene.beginDirectAnimation(hero, [walkToMiddle], 0, 150, false, 1, () => {
-                            walkAnim.stop();
-                        });
-                        break;
-                    case 'sambaStart':
-                        idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-                        hero.rotation.y = Math.PI / 2; // Face the front
-                        sambaAnim.start(false, 1.0, sambaAnim.from, sambaAnim.to, false);
-                        break;
-                    case 'sambaStop':
-                        sambaAnim.stop();
-                        break;
-                    case 'walkOffStart':
-                        walkAnim.start(true, 1.0, walkAnim.from, walkAnim.to, false);
-                        scene.beginDirectAnimation(hero, [walkOffRight], 0, 150, false, 1, () => {
-                            walkAnim.stop();
-                            idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-                        });
-                        break;
+                const event = step.event;
+                console.log("Triggering event:", event);
+                if (eventActions[event]) {
+                    eventActions[event]();
+                } else {
+                    console.error("Event action not found for:", event);
                 }
             },
-            [
-                [0, 'idleStart'],
-                [2, 'idleStop'],
-                [2, 'walkStart'],
-                [7, 'sambaStart'],
-                [10, 'sambaStop'],
-                [10, 'walkOffStart']
-            ]
+            []
         );
+
+        // Add hardcoded events to the timeline
+        addEventToTimeline(part, 0, 'idleStart'); // Idle at the start
+        addEventToTimeline(part, 2, 'idleStop');  // Stop idling after 2 seconds
+        addEventToTimeline(part, 2, 'walkStart'); // Start walking to the center
+        addEventToTimeline(part, 7, 'sambaStart'); // Start dancing samba after reaching the center
+        addEventToTimeline(part, 10, 'sambaStop'); // Stop dancing samba after 3 seconds
+        addEventToTimeline(part, 10, 'walkOffStart'); // Start walking off to the right
+        addEventToTimeline(part, 15, 'idleStart'); // Idle at the end
 
         // Start the part
         Tone.Transport.start();
@@ -153,12 +182,26 @@ const BabylonScene: React.FC = () => {
         }
     };
 
+    const handleSliderChange = (value: number) => {
+        setCurrentTime(value);
+        Tone.Transport.seconds = value;
+        // Reset animations and positions based on the current time
+        // This part needs to be implemented based on your specific requirements
+    };
+
     return (
         <div>
             <canvas ref={canvasRef} style={{ width: '100%', height: '80vh' }} />
             <div style={{ textAlign: 'center', marginTop: '10px' }}>
                 <button onClick={handleRewind}>REWIND</button>
                 <button onClick={handlePlayPause}>{isPlaying ? 'PAUSE' : 'PLAY'}</button>
+                <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={currentTime}
+                    onChange={(e) => handleSliderChange(Number(e.target.value))}
+                />
             </div>
         </div>
     );
